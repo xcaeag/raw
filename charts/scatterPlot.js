@@ -22,7 +22,7 @@
     //left margin
     var marginLeft = chart.number()
         .title('Left Margin')
-        .defaultValue(40)
+        .defaultValue(10)
 
     var maxRadius = chart.number()
         .title("max radius")
@@ -50,17 +50,6 @@
             .attr("height", +height())
             .append("g");
 
-        //define margins
-        var margin = {
-            top: 0,
-            right: 0,
-            bottom: 20,
-            left: marginLeft()
-        };
-
-        var w = width() - margin.left,
-            h = height() - margin.bottom;
-
         var xExtent = !useZero() ? d3.extent(data, d => {
                 return d.x;
             }) : [0, d3.max(data, d => {
@@ -72,17 +61,54 @@
                 return d.y;
             })];
 
-        var xScale = x.type() == "Date" ?
-            d3.scaleTime().range([margin.left, width() - maxRadius()]).domain(xExtent) :
-            d3.scaleLinear().range([margin.left, width() - maxRadius()]).domain(xExtent),
-            yScale = y.type() == "Date" ?
+
+        //define margins
+        var margin = {
+            top: 0,
+            right: 0,
+            bottom: 20,
+            left: 0
+        };
+
+        var w = width() - margin.left,
+            h = height() - margin.bottom;
+
+        // first draw the yScale
+        var yScale = y.type() == "Date" ?
             d3.scaleTime().range([h - maxRadius(), maxRadius()]).domain(yExtent) :
             d3.scaleLinear().range([h - maxRadius(), maxRadius()]).domain(yExtent),
             sizeScale = d3.scaleLinear().range([1, Math.pow(+maxRadius(), 2) * Math.PI]).domain([0, d3.max(data, d => {
                 return d.size;
             })]),
-            xAxis = d3.axisBottom(xScale).tickSize(-h + maxRadius() * 2) //.tickSubdivide(true),
-        yAxis = d3.axisLeft(yScale).ticks(10).tickSize(-w + maxRadius());
+            yAxis = d3.axisLeft(yScale).ticks(10).tickSize(-w + maxRadius());
+
+        g.append("g")
+            .attr("class", "y axis")
+            .style("stroke-width", "1px")
+            .style("font-size", "10px")
+            .style("font-family", "Arial, Helvetica")
+            .attr("transform", `translate(${margin.left}, 0)`)
+            .call(yAxis);
+
+        // then get the labels width, update margin.left and update the chart width
+        // redraw the yScale in the correct position
+        d3.selectAll('.y.axis .tick > text').each(function(d, i) {
+            let thisWidth = d3.select(this).node().getBBox().width + 10;
+            margin.left = d3.max([margin.left, thisWidth]);
+        })
+        if (margin.left > width()*0.1) {
+            margin.left = width()*0.1;
+        }
+        w = width() - margin.left;
+        d3.select('.y.axis')
+            .attr("transform", `translate(${margin.left}, 0)`)
+            .call(yAxis);
+
+        var xScale = x.type() == "Date" ?
+            d3.scaleTime().range([margin.left, width() - maxRadius()]).domain(xExtent) :
+            d3.scaleLinear().range([margin.left, width() - maxRadius()]).domain(xExtent);
+
+        xAxis = d3.axisBottom(xScale).tickSize(-h + maxRadius() * 2);
 
         g.append("g")
             .attr("class", "x axis")
@@ -92,13 +118,8 @@
             .attr("transform", `translate(0, ${h - maxRadius()})`)
             .call(xAxis);
 
-        g.append("g")
-            .attr("class", "y axis")
-            .style("stroke-width", "1px")
-            .style("font-size", "10px")
-            .style("font-family", "Arial, Helvetica")
-            .attr("transform", `translate(${margin.left}, 0)`)
-            .call(yAxis);
+        
+
 
         d3.selectAll(".y.axis line, .x.axis line, .y.axis path, .x.axis path")
             .style("shape-rendering", "crispEdges")
