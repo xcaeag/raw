@@ -98,8 +98,6 @@
 
         d3.select('.y.axis').call(yAxis);
 
-
-
         // get the labels width and update margins
         d3.selectAll('.y.axis .tick > text').each(function(d, i) {
             let thisWidth = d3.select(this).node().getBBox().width + 10;
