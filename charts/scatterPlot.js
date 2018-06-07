@@ -19,14 +19,9 @@
         .title("Height")
         .defaultValue(500);
 
-    //left margin
-    var marginLeft = chart.number()
-        .title('Left Margin')
-        .defaultValue(10)
-
     var maxRadius = chart.number()
         .title("max radius")
-        .defaultValue(20);
+        .defaultValue(7);
 
     var useZero = chart.checkbox()
         .title("set origin at (0,0)")
@@ -45,11 +40,6 @@
         var x = points.dimensions().get('x'),
             y = points.dimensions().get('y');
 
-        var g = selection
-            .attr("width", +width())
-            .attr("height", +height())
-            .append("g");
-
         var xExtent = !useZero() ? d3.extent(data, d => {
                 return d.x;
             }) : [0, d3.max(data, d => {
@@ -61,65 +51,90 @@
                 return d.y;
             })];
 
+        var sizeScale = d3.scaleLinear()
+            .range([1, Math.pow(+maxRadius(), 2) * Math.PI])
+            .domain([0, d3.max(data, d => {
+                return d.size;
+            })])
 
         //define margins
         var margin = {
-            top: 0,
-            right: 0,
-            bottom: 20,
-            left: 0
+            top: maxRadius() + 5,
+            right: maxRadius() + 5,
+            bottom: maxRadius() + 5,
+            left: maxRadius() + 5
         };
 
-        var w = width() - margin.left,
-            h = height() - margin.bottom;
+        var w = width() - margin.left - margin.right,
+            h = height() - margin.top - margin.bottom;
 
-        // first draw the yScale
-        var yScale = y.type() == "Date" ?
-            d3.scaleTime().range([h - maxRadius(), maxRadius()]).domain(yExtent) :
-            d3.scaleLinear().range([h - maxRadius(), maxRadius()]).domain(yExtent),
-            sizeScale = d3.scaleLinear().range([1, Math.pow(+maxRadius(), 2) * Math.PI]).domain([0, d3.max(data, d => {
-                return d.size;
-            })]),
-            yAxis = d3.axisLeft(yScale).ticks(10).tickSize(-w + maxRadius());
+        var g = selection
+            .attr("width", +width())
+            .attr("height", +height())
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        g.append("g")
-            .attr("class", "y axis")
-            .style("stroke-width", "1px")
-            .style("font-size", "10px")
-            .style("font-family", "Arial, Helvetica")
-            .attr("transform", `translate(${margin.left}, 0)`)
-            .call(yAxis);
+        var xScale = x.type() == "Date" ? d3.scaleTime() : d3.scaleLinear();
+        xScale.range([0, w]).domain(xExtent)
+        xAxis = d3.axisBottom(xScale).ticks(10).tickSize(-h);
 
-        // then get the labels width, update margin.left and update the chart width
-        // redraw the yScale in the correct position
-        d3.selectAll('.y.axis .tick > text').each(function(d, i) {
-            let thisWidth = d3.select(this).node().getBBox().width + 10;
-            margin.left = d3.max([margin.left, thisWidth]);
-        })
-        if (margin.left > width()*0.1) {
-            margin.left = width()*0.1;
-        }
-        w = width() - margin.left;
-        d3.select('.y.axis')
-            .attr("transform", `translate(${margin.left}, 0)`)
-            .call(yAxis);
-
-        var xScale = x.type() == "Date" ?
-            d3.scaleTime().range([margin.left, width() - maxRadius()]).domain(xExtent) :
-            d3.scaleLinear().range([margin.left, width() - maxRadius()]).domain(xExtent);
-
-        xAxis = d3.axisBottom(xScale).tickSize(-h + maxRadius() * 2);
+        var yScale = y.type() == "Date" ? d3.scaleTime() : d3.scaleLinear();
+        yScale.range([h, 0]).domain(yExtent);
+        var yAxis = d3.axisLeft(yScale).ticks(10).tickSize(-w);
 
         g.append("g")
             .attr("class", "x axis")
             .style("stroke-width", "1px")
             .style("font-size", "10px")
             .style("font-family", "Arial, Helvetica")
-            .attr("transform", `translate(0, ${h - maxRadius()})`)
-            .call(xAxis);
 
-        
+        d3.select('.x.axis').attr("transform", `translate(0, ${h})`).call(xAxis);
 
+        g.append("g")
+            .attr("class", "y axis")
+            .style("stroke-width", "1px")
+            .style("font-size", "10px")
+            .style("font-family", "Arial, Helvetica")
+
+        d3.select('.y.axis').call(yAxis);
+
+
+
+        // get the labels width and update margins
+        d3.selectAll('.y.axis .tick > text').each(function(d, i) {
+            let thisWidth = d3.select(this).node().getBBox().width + 10;
+            margin.left = d3.max([margin.left, thisWidth]);
+        })
+
+        d3.select('.x.axis .tick:last-child').each(function(d,i){
+            let thisX = d3.select(this).attr('transform').split('(')[1].split(',')[0];
+            // Check if the most right placed horizontal tick is placed on the right margin
+            if (Math.round(xScale.range()[1]*0.1) <= Math.round(thisX*0.1)) {
+                let thisWidth = d3.select(this).select('text').node().getBBox().width + 10;
+                margin.right = d3.max([margin.right, thisWidth/2]);
+            }
+            // always readapt the bottom margin
+            let thisHeight = d3.select(this).select('text').node().getBBox().height + 5;
+            margin.bottom = d3.max([margin.bottom, thisHeight]);
+        })
+
+        // update chart dimentions
+        w = width() - margin.left - margin.right;
+        h = height() - margin.bottom - margin.top;
+
+        // update position of g
+        g.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        // update scales and axis
+        xScale.range([0, w]);
+        xAxis.tickSize(-h);
+
+        yScale.range([h, 0]);
+        yAxis.tickSize(-w);
+
+        // redraw axis
+        d3.select('.x.axis').attr("transform", `translate(0, ${h})`).call(xAxis);
+        d3.select('.y.axis').call(yAxis);
 
         d3.selectAll(".y.axis line, .x.axis line, .y.axis path, .x.axis path")
             .style("shape-rendering", "crispEdges")
