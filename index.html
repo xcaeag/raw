@@ -385,9 +385,24 @@
 
     <!-- open pre-launch-modal -->
     <script type="text/javascript">
-        $('#pre-launch-modal')
-            // .modal({'backdrop', 'static'})
-            .modal('toggle')
+
+        var myStorage = window.localStorage;
+
+        // How much time it passes from the last time the campaign popup has been closed
+        let offset = 1000 // millisec
+        * 60 // seconds
+        * 15 // minutes
+        * 1 // hours
+        * 1 // days
+
+        let now = new Date();
+        now = now.getTime();
+
+        if (!localStorage.getItem('latestPopUp') || (now - localStorage.getItem('latestPopUp')) >= offset){
+            localStorage.setItem('latestPopUp', now);
+            $('#pre-launch-modal').modal('toggle');
+        }
+
     </script>
   </body>
 </html>
