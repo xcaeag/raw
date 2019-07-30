@@ -66,6 +66,8 @@
     <link rel="stylesheet" href="css/raw.css" />
     <link rel="icon" href="favicon.ico?v=2" type="image/x-icon" />
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/cookieconsent@3/build/cookieconsent.min.css" />
   </head>
 
   <body data-spy="scroll" data-target="#raw-nav">
@@ -391,7 +393,7 @@
         // How much time it passes from the last time the campaign popup has been closed
         let offset = 1000 // millisec
         * 60 // seconds
-        * 15 // minutes
+        * 1 // minutes
         * 1 // hours
         * 1 // days
 
@@ -403,6 +405,25 @@
             $('#pre-launch-modal').modal('toggle');
         }
 
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/cookieconsent@3/build/cookieconsent.min.js" data-cfasync="false"></script>
+    <script>
+        window.cookieconsent.initialise({
+          "palette": {
+            "popup": {
+              "background": "#f5f5f5",
+              "text": "#646467"
+            },
+            "button": {
+              "background": "#737375",
+              "text": "#ffffff"
+            }
+          },
+          "theme": "classic",
+          "content": {
+            "message": "RAWGraphs uses cookies, but don't worry: your data is safe and remains on your computer only."
+          }
+        });
     </script>
   </body>
 </html>
