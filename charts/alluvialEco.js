@@ -1,66 +1,80 @@
+var steps = null;
+
 (function() {
 
     var graph = raw.models.graph();
 
     var chart = raw.chart()
-        .title('Alluvial Diagram')
+        .title('Alluvial Diagram AEAG')
         .description(
-            "Alluvial diagrams allow to represent flows and to see correlations between categorical dimensions, visually linking to the number of elements sharing the same categories. It is useful to see the evolution of cluster (such as the number of people belonging to a specific group). It can also be used to represent bipartite graphs, using each node group as dimensions.<br/>Mainly based on DensityDesign's work with Fineo, it is inspired by <a href='https://bl.ocks.org/mbostock/ca9a0bb7ba204d12974bca90acc507c0'>https://bl.ocks.org/mbostock/ca9a0bb7ba204d12974bca90acc507c0</a>")
-        .thumbnail("imgs/alluvial.png")
+            "Derived from Alluvial Diagram, it adds color gradients, labels on nodes and links, some statistical informations.")
+        .thumbnail("imgs/alluvialEco.png")
         .category("Multi categorical")
         .model(graph);
 
     var width = chart.number()
-        .title("Width")
+        .title("Largeur")
         .defaultValue(1000)
         .fitToWidth(true);
 
     var height = chart.number()
-        .title("Height")
+        .title("Hauteur")
         .defaultValue(500);
 
     var nodeWidth = chart.number()
-        .title("Node Width")
+        .title("Largeur des noeuds")
         .defaultValue(50);
 
     var opacity = chart.number()
-        .title("Links opacity")
-        .defaultValue(.5);
+        .title("Opacité")
+        .defaultValue(.6);
+
+    var showTotal = chart.checkbox()
+        .title("Montrer les totaux")
+        .defaultValue(true);
+
+    var ignoreU = chart.checkbox()
+        .title("Ne pas compter les inconnus")
+        .defaultValue(true);
+
+    var colName = chart.list()
+        .title('Champ détail');
+
+    var detailLimit = chart.number()
+        .title("Limiter le détail à n éléments")
+        .defaultValue(2);
 
     var sortBy = chart.list()
-        .title("Sort by")
+        .title("Trier par")
         .values(['size', 'name', 'automatic', 'value'])
         .defaultValue('value');
 
+    var showSteps = chart.checkbox()
+        .title("Voir le nom des étapes")
+        .defaultValue(true);
+
+    var showStats = chart.checkbox()
+        .title("Voir les statistiques")
+        .defaultValue(true);
+
     var gradientColors = chart.checkbox()
-        .title("Gradient")
-        .defaultValue(false);
+        .title("Dégradé de couleurs")
+        .defaultValue(true);
 
     var darkness = chart.number()
-        .title("Box darkness (0..1)")
-        .defaultValue(0.3);
-
-    var colorBy = chart.list()
-        .title("Color by")
-        .values(['step-value', 'value'])
-        .defaultValue('value');
-
-    var colors = chart.color()
-        .title("Color scale");
+        .title("Assombrissement des boîtes")
+        .defaultValue(.3);
 
     var padding = chart.number()
         .title("Padding factor")
         .defaultValue(0.9);
 
-    var showSteps = chart.checkbox()
-        .title("Show steps names")
-        .defaultValue(true);
-
-    var showValues = chart.checkbox()
-        .title("Show values")
-        .defaultValue(true);
-
     chart.draw((selection, data) => {
+
+        var aeagColors = { "1":"#248fd5", "2":"#50c72f", "3":"#f4df3c", "4":"#ff8800", "5":"#f4280f", "U":"#c5c5c5" };
+        colName.values(d3.keys(data.dataSource[0]));
+
+        hClass = { 1: 'Très bon', 2: 'Bon', 3: 'Moyen', 4: 'Médiocre', 5: 'Mauvais', U: 'Inconnu' };
 
         // get the drawing area
         var g = selection
@@ -68,12 +82,6 @@
             .attr("height", +height() + 20)
             .append("g")
             .attr("transform", "translate(0, 10)");
-
-        // define numbers formatting
-        var formatNumber = d3.format(",.0f"),
-            format = function(d) {
-                return formatNumber(d);
-            };
 
         // Calculating the best nodePadding (TODO: improve)
         var nested = d3.nest()
@@ -84,6 +92,16 @@
                 return d.length;
             })
             .entries(data.nodes);
+
+        steps = d3.nest()
+            .key(function(d) { return d.group; })
+            .entries(data.nodes);
+
+        var hSteps = {};
+        d3.values(steps)
+            .forEach(function(d) {
+                hSteps[d.key] = d;
+            });
 
         var maxNodes = d3.max(nested, function(d) {
             return d.values;
@@ -99,18 +117,13 @@
         // use the loaded data
         sankey(data);
 
-        // define colors
-        colors.domain(data.nodes, function(d) {
-            return (colorBy() == 'step-value') ? (d.group + " - " + d.name) : (d.name);
-        });
-
         // add values to nodes
         data.nodes.forEach(function(d) {
             // get height for each node
             d.dx = d.x1 - d.x0;
             d.dy = d.y1 - d.y0;
-            // check if the name is a number
 
+            // check if the name is a number
             if (!isNaN(+d.name)) {
                 d.name = +d.name;
             }
@@ -139,11 +152,11 @@
                         if (j == i + 1) {
                             d.values.forEach(function(dst) {
                                 if (src.group != dst.group) {
-                                    var rampKey = src.group + "-" + src.name + "-" + dst.group + "-" + dst.name;
-                                    var fromColor = colors()((colorBy() == 'step-value') ? (src.group + " - " + src.name) : (src.name));
-                                    var toColor = colors()((colorBy() == 'step-value') ? (dst.group + " - " + dst.name) : (dst.name));
-
-                                    var gr = defs.append("linearGradient").attr("id", "g" + rampKey);
+                                    var pk = src.group + src.name + dst.name;
+                                    var fromColor = aeagColors[src.name.toString().slice(0,1)];
+                                    var toColor = aeagColors[dst.name.toString().slice(0,1)];
+                                    // a gradient
+                                    var gr = defs.append("linearGradient").attr("id", "g"+pk);
                                     gr.append("stop").attr("style", "stop-color:" + fromColor + ";stop-opacity:1;").attr("offset", "0");
                                     gr.append("stop").attr("style", "stop-color:" + toColor + ";stop-opacity:1;").attr("offset", "1");
                                 }
@@ -151,12 +164,11 @@
                         }
                     })
                 });
-            })
+            });
         }
 
         nested
             .forEach(function(d) {
-
                 var y = (height() - d3.sum(d.values, function(n) {
                     return n.dy + sankey.nodePadding();
                 })) / 2 + sankey.nodePadding() / 2;
@@ -164,7 +176,6 @@
                 d.values.sort(function(a, b) {
                     if (sortBy() == "automatic") return b.y0 - a.y0;
                     if (sortBy() == "size") return b.dy - a.dy;
-                    //if (sortBy() == "name") return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
                     if (sortBy() == "name") {
                         var a1 = typeof a.name,
                             b1 = typeof b.name;
@@ -182,7 +193,6 @@
             })
 
         // Resorting links
-
         nested.forEach(function(d) {
 
             d.values.forEach(function(node) {
@@ -194,7 +204,6 @@
                         return a.target.y0 - b.target.y0;
                     })
                     .forEach(function(link) {
-                        // random : a straight line remains invisible otherwise !
                         link.y0 = ly + link.width / 2 + Math.random();
                         ly += link.width;
                     })
@@ -212,7 +221,7 @@
             })
         })
 
-        //prepare link
+        // prepare link
         var link = g.append("g")
             .attr("class", "links")
             .attr("fill", "none")
@@ -221,19 +230,48 @@
             .data(data.links)
             .enter().append("path")
             .attr("d", d3.sankeyLinkHorizontal())
+            .attr("id", function(d) { return "p" + d.source.group + d.source.name + d.target.name; })
             .style("stroke", function(d) {
                 if (gradientColors()) {
-                    return "url('#g" + d.source.group + "-" + d.source.name + "-" + d.target.group + "-" + d.target.name + "')";
+                    return "url('#g" + d.source.group + d.source.name + d.target.name + "')";
                 } else {
-                    return colors()((colorBy() == 'step-value') ? (d.source.group + " - " + d.source.name) : (d.source.name));
+                    return aeagColors[d.source.name.toString().slice(0,1)];
                 }
             })
             .attr("stroke-width", function(d) {
-                return d.width;
+                return Math.max(0.5, d.width);
             });
 
+        // Text over links
+        if (colName()) {
+            var link = g.append("g").selectAll(".link")
+                .data(data.links)
+                .enter()
+                .append("text")
+                .filter(function(d) { return d.value <= detailLimit() && d.value > 0; })
+                .style("font-size", "9px")
+                .style("font-family", "Arial, Helvetica")
+                .style("fill", function(d) { return d3.rgb(aeagColors[d.source.name.toString().slice(0,1)]).darker(3); })
+                .append("textPath")
+                .attr("xlink:href", function(g) { return "#p" + g.source.group + g.source.name + g.target.name; })
+                .attr("startOffset", function(g) {
+                    return "" + Math.ceil(70 * Math.random() + 10) + "%";
+                })
+                .text(function(g) {
+                    t = data.dataSource.filter(function(d) { return (d[g.source.group] == g.source.name) && (d[g.target.group] == g.target.name); });
+                    lib = t.map(function(d) { return d[colName()]; }).join(" - ");
+                    return lib;
+                })
+                .on("click", function(g) {
+                    t = data.dataSource.filter(function(d) { return (d[g.source.group] == g.source.name) && (d[g.target.group] == g.target.name); });
+                    for (cd in t) {
+                        window.open("http://adour-garonne.eaufrance.fr/evolution/" + t[cd][colName()], "_blank");
+                    }
+                });
+        }
 
-        //prepare node
+
+        // prepare node
         var node = g.append("g")
             .attr("class", "nodes")
             .attr("font-family", "Arial, Helvetica")
@@ -242,7 +280,7 @@
             .data(data.nodes)
             .enter().append("g");
 
-        //add rectangle
+        // add rectangle
         node.append("rect")
             .attr("x", function(d) {
                 return d.x0;
@@ -257,36 +295,55 @@
                 return d.dx;
             })
             .attr("fill", function(d) {
-                return d3.rgb(colors()((colorBy() == 'step-value') ? (d.group + " - " + d.name) : (d.name))).darker(darkness());
+                return d3.rgb(aeagColors[d.name.toString().slice(0,1)]).darker(darkness());
+            })
+            .append("title")
+            .text(function(d) { return d.name; });
+
+
+        // sums by node
+        d3.values(steps)
+            .forEach(function(d) {
+                var sum = 0;
+                d.values.forEach(function(v) {
+                    if ((!ignoreU()) || (ignoreU() && v.name != 'U'))
+                        sum += v.value;
+                });
+                d.sum = sum;
             });
 
 
-        //add labels
-        if (showValues()) {
+        // nodes labels
+        if (showStats()) {
             node.append("text")
-                .attr("x", function(d) {
-                    return d.x0 - 6;
-                })
-                .attr("y", function(d) {
-                    return d.y0 + d.dy / 2;
-                })
-                .attr("dy", "0.35em")
-                .attr("text-anchor", "end")
-                .text(function(d) {
-                    return d.name;
-                })
-                .filter(function(d) {
-                    return d.x0 < nodeWidth()
-                })
-                .attr("x", function(d) {
-                    return d.x1 + 6;
-                })
-                .attr("text-anchor", "start");
-            }
-
-        var steps = d3.nest()
-            .key(function(d) { return d.group; })
-            .entries(data.nodes);
+            .attr("x", function(d) {
+                return d.x0 - 6;
+            })
+            .attr("y", function(d) {
+                return d.y0 + d.dy / 2;
+            })
+            .attr("dy", "0.35em")
+            .attr("text-anchor", "end")
+            .text(function(d) {
+                if ((!ignoreU()) || (ignoreU() && d.name != 'U')) {
+                    return (d.x0 < nodeWidth()) ?
+                        hClass[d.name] + " " + d.value + " (" + (Math.round(10 * 100.0 * d.value / hSteps[d.group].sum) / 10) + "%)" :
+                        "" + d.value + " (" + (Math.round(10 * 100.0 * d.value / hSteps[d.group].sum) / 10) + "%)";
+                } else {
+                    return (d.x0 < nodeWidth()) ? hClass[d.name] + " " + d.value : "" + d.value;
+                }
+            })
+            .attr("fill", function(d) {
+                return d3.rgb(aeagColors[d.name.toString().slice(0,1)]).darker(2);
+            })
+            .filter(function(d) {
+                return d.x0 < nodeWidth()
+            })
+            .attr("x", function(d) {
+                return d.x1 + 6;
+            })
+            .attr("text-anchor", "start");
+        }
 
         if (showSteps()) {
             d3.values(steps)
@@ -296,10 +353,8 @@
                         .append("g")
                         .attr("transform", "rotate(-90)")
                         .append("text")
-                        .attr("x", 0)
-                        .attr("y", 0)
                         .attr("transform", null)
-                        .text(d.key.replace("_", " "))
+                        .text(d.key.replace("_", " ") + (showTotal() ? " (" + hSteps[d.key].sum + ")" : ""))
                         .style("font-size", (nodeWidth()) + "px")
                         .style("font-weight", "900")
                         .style("font-family", "Arial Black, Heavy")

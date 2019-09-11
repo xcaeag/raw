@@ -214,7 +214,6 @@ angular.module('raw.directives', [])
 	      link: function postLink(scope, element, attrs) {
 
 	        scope.scales = [
-
 	        	{
 	        		type : 'Ordinal (categories)',
 	        		value : d3.scaleOrdinal().range(raw.divergingRange(1)),

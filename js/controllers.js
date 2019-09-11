@@ -199,7 +199,8 @@ angular.module('raw.controllers', [])
       { title : 'Orchestras', type : 'Hierarchies (weighted)', url : 'data/orchestra.csv' },
       { title : 'Animal kingdom', type: 'Hierarchies', url : 'data/animals.tsv' },
       { title : 'Titanic\'s passengers', type : 'Multi categorical', url : 'data/titanic.tsv' },
-      { title : 'Most frequent letters', type: 'Matrix (narrow)', url:'data/letters.tsv'}
+      { title : 'Most frequent letters', type: 'Matrix (narrow)', url:'data/letters.tsv'},
+      { title : 'AEAG : états des stations', type: 'Matrix (narrow)', url:'data/etats-stq.csv'}
     ]
 
     $scope.selectSample = sample => {
